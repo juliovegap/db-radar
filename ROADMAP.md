@@ -8,7 +8,78 @@ For completed features and history, see [CHANGELOG.md](CHANGELOG.md).
 
 ## Known Issues
 
-None currently open. See Resolved below for FT-03, FT-05, FT-09, FT-10.
+### Settings Screen: Swipe Gesture Doesn't Update Custom Tab Bar Highlight
+**Severity**: UX bug — navigation still works, but the active-tab indicator lies
+
+**Symptom**: swiping left/right on the settings tabview content does change the visible page (LVGL's
+built-in `lv_tabview` swipe gesture calls `lv_tabview_set_act()` internally), but the custom scrollable
+tab bar above it — the row of "GPS / WiFi / Display / Sound / Beacon / DEV" buttons — never re-highlights.
+It stays showing the first tab (GPS) as active regardless of which tab is actually on screen.
+
+**Root cause**: the highlight-sync loop only runs from the tab buttons' own `LV_EVENT_CLICKED` handler
+(`src/ui/settings_screen.cpp:869-884`) — it directly sets `g_custom_tab_btns[j]` bg/border/label colors
+based on the clicked index. A swipe never fires that callback; it changes the tabview's active index
+through a completely separate path with nothing subscribed to it.
+
+**Fix direction**: register an `LV_EVENT_VALUE_CHANGED` (or `LV_EVENT_LAYOUT_CHANGED`) handler on
+`ui.settings_tabview` (created at `src/ui/settings_screen.cpp:798`) that reads
+`lv_tabview_get_tab_act()` and runs the same bg/border/label-color sync loop already inside the click
+handler — probably worth factoring that loop out into a small shared function so both call sites stay
+in sync instead of drifting again later.
+
+**Status**: diagnosed, not fixed. Found 2026-08-22, not yet reproduced against a specific LVGL 8.4.0
+`lv_tabview` swipe event name — confirm which event actually fires before wiring the handler.
+
+---
+
+### Settings Screen Has No Light/Daylight Variant
+**Severity**: UX/Feature — outdoor readability
+
+**Ask**: the Settings screen (`src/ui/settings_screen.cpp`) is hard-coded dark (`0x1A1A1A`/`0x2A2A2A`
+backgrounds throughout `create()`) with no light counterpart — unlike the **radar** screen, which
+already has a working daylight toggle (`settings.daylight_mode`, NVS-persisted via
+`saveDaylightMode()`, `include/settings_manager.h:47`) that swaps `navigation.cpp`'s `COLOR_NORMAL` /
+`COLOR_DAYLIGHT` schemes and calls `ui_manager::updateDaylightMode()`. That existing toggle only
+affects the radar view and its HUD — it does not touch the Settings screen's own colors at all, so
+flipping it on and then opening Settings drops you right back into a dark UI in bright sunlight.
+
+**Palette to use**: the pastel Dragon-Ball-inspired palette already designed and shipped for the GPX
+generator web tool (warm gi-orange + dragon-ball gold primary accents, sky-blue for
+links/secondary actions, muted coral-red for destructive actions, cream/parchment panels on a pale
+sky-blue ground) — see "GPX Generator Tool" above, `docs/quests_plan.md`'s "Design philosophy"
+section, and the reference token file `assets/DB_Theme.css` (gitignored, not built/shipped). That
+same entry already flags the on-device GPX manager (`src/gpx/gpx_server.cpp`'s `UPLOAD_HTML`) and the
+web flasher as future targets for this palette — the Settings screen would be a third, and the first
+one running on the LVGL/C++ side rather than as static HTML/CSS, so token values need porting to
+`lv_color_hex()` constants rather than reused directly as CSS custom properties.
+
+**Independently stored, but one-way coupled from `daylight_mode` → settings light mode.** Two
+separate NVS-persisted booleans (e.g. `daylight_mode` and a new `settings_ui_light_mode`), each with
+its own switch in the Display tab — but they are not fully decoupled:
+- **Turning `daylight_mode` ON also turns settings light mode ON** — flip the outdoor toggle and
+  Settings comes along for free as a sensible default, no second manual step needed on the common
+  path (you're outside, everything should be bright).
+- **Turning `daylight_mode` OFF does *not* turn settings light mode back OFF.** Whatever the user's
+  Settings preference is at that point (light or dark) survives unchanged — going back to normal
+  radar mode must not silently override a preference the user set (either directly, or picked up
+  from the daylight push a moment ago).
+- **The settings switch itself is always independently manual-overridable in both directions**,
+  regardless of `daylight_mode`'s current state — e.g. bright Settings while radar stays in normal
+  (non-daylight) mode, which is exactly the case the one-way coupling has to support: daylight→bright
+  is a convenience default, not a lock.
+
+Net effect: daylight ON is a one-shot push (`daylight_mode ON` → also set `settings_ui_light_mode =
+true`), not a live binding — there is no continuous "settings mirrors daylight" behavior and no push
+the other direction (settings toggle never touches `daylight_mode`).
+
+**Implementation note**: the push only needs to fire on the daylight switch's `enabled == true` edge
+in its `LV_EVENT_VALUE_CHANGED` handler (`settings_screen.cpp`, daylight mode section) — call
+`settings_manager::saveSettingsUiLightMode(true)` (new function, mirrors `saveDaylightMode()`) and
+refresh the settings light-mode switch widget if it's currently visible. The `enabled == false` branch
+should do nothing to the settings key.
+
+**Status**: brainstorm stage, nothing designed or implemented. Open question: whether tab-bar/switch/
+slider LVGL widget styles need their own light variants or just background/text color swaps.
 
 ---
 

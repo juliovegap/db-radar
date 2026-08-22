@@ -11,6 +11,8 @@ round display, part of the db-radar project. Load a GPX file over WiFi, step out
 shows where each waypoint sits relative to the direction you're facing — no phone, no app, no signal
 required once it's loaded.
 
+https://github.com/user-attachments/assets/c2a9bff7-52dd-4847-a037-6d4f90e02dc0
+
 ---
 
 ## What It Does

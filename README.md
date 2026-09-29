@@ -11,8 +11,6 @@ round display, part of the db-radar project. Load a GPX file over WiFi, step out
 shows where each waypoint sits relative to the direction you're facing — no phone, no app, no signal
 required once it's loaded.
 
-https://github.com/user-attachments/assets/c2a9bff7-52dd-4847-a037-6d4f90e02dc0
-
 ---
 
 ## What It Does
@@ -136,13 +134,22 @@ the full image — the portal expects the raw app binary only).
 
 ### Loading GPX Waypoints
 
-1. Power on the board — it creates a WiFi access point named `Radar-GPX` (password: `radar123`)
+1. Power on the board — it creates a WiFi access point named `Radar-GPX`. Each device generates its
+   own default password from its WiFi MAC address (shown on the Settings > WiFi screen as
+   `radar-xxxxxx`) instead of shipping with a shared password — earlier builds used a fixed
+   `radar123` password for every unit, which this default replaces. You can change both the SSID
+   and password from Settings > WiFi at any time.
 2. Connect your phone or laptop to that network
 3. Browse to `http://192.168.4.1`
-4. Upload any `.gpx` file — waypoints appear on the radar immediately
+4. The upload page, GPX upload, file deletion, and firmware update (`/update`) now prompt for a
+   username/password the first time — enter anything as the username and the AP password (from
+   Settings > WiFi) as the password. Browsing the already-loaded GPX list does not require this.
+5. Upload any `.gpx` file — waypoints appear on the radar immediately
 
 Alternatively, switch to STA mode in Settings to join your home network instead; the web portal is
-then reachable at the device's IP address, shown on the Settings screen.
+then reachable at the device's IP address, shown on the Settings screen. In STA mode this
+credential is what stops other devices on your home network from uploading files or flashing
+firmware to the radar without your knowledge.
 
 Don't have a GPX file yet? Build one — including per-waypoint hint text — with the
 **[GPX Generator](https://alvroga.github.io/db-radar/gpx-generator/)**, or export one from any standard
